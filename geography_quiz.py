@@ -29,23 +29,33 @@ class MainWindow(QDialog):
         self.indexes_list = []
         self.clear_show_correct_answer_flag = False
 
+    def minus_rmove(self, answer: str):
+        if answer[0] == "-":
+            return answer[1:]
+        else:
+            return answer
+
+
     def get_hint(self) -> Optional[str]:
         widget = self.check_hint_type()
         answer = widget.text()
         correct_answer = str(self.hint_correct_answer())
+        correct_answer = self.minus_rmove(correct_answer)
         if not answer:
             spacebar_index = self.find_spacebar_index(correct_answer, " ")
             empty_hint = self.transform_answer(correct_answer, spacebar_index)
             widget.setText(empty_hint)
+            self.correct_message_hint_test()
             return empty_hint
         else:
             if answer == correct_answer:
-                print("Answer is correct")
+                self.correct_message_hint()
             else:
                 answer = self.hint_lenght_compare(correct_answer, answer)
                 correct_char_indexes = self.hints_compare(correct_answer, answer)
                 new_char_index = self.random_hint_char(correct_answer, correct_char_indexes)
                 self.put_new_hint_char(widget, new_char_index, answer)
+                self.correct_message_hint_test()
 
     def random_hint_char(self, correct_answer: str, correct_char_indexes: list[int]) -> Dict[str, int]:
         hint_index = random.randrange(len(correct_answer))
@@ -147,13 +157,18 @@ class MainWindow(QDialog):
         self.score += self.round_points
 
     def start_quiz(self):
+        self.correct_message_hint_test()
         if self.country_informations:
-            self.round_points = 0
-            continent, country, capital, latitude, longitude, area, population = self.correct_answer(self.country_informations)
-            self.answer_validation(country, continent, capital, population, latitude, longitude, area)
-            self.round_score()
-            self.ScoreLabel.setText(f"Score: {self.score}")
-            self.set_show_answer()
+            try:
+                self.round_points = 0
+                continent, country, capital, latitude, longitude, area, population = self.correct_answer(self.country_informations)
+                self.answer_validation(country, continent, capital, population, latitude, longitude, area)
+                self.round_score()
+                self.ScoreLabel.setText(f"Score: {self.score}")
+                self.set_show_answer()
+            except:
+                self.get_countries_list()
+                self.start_quiz()
         else:
             print("Empty")
 
@@ -161,9 +176,9 @@ class MainWindow(QDialog):
         continent = country_info["continents"][0]
         country = country_info["name"]["common"]
         capital = country_info["capital"][0]
-        latitude = country_info["latlng"][0]
-        longitude = country_info["latlng"][1]
-        area = country_info["area"]
+        latitude = int(country_info["latlng"][0])
+        longitude = int(country_info["latlng"][1])
+        area = int(country_info["area"])
         population = country_info["population"]
         return continent, country, capital, latitude, longitude, area, population
 
@@ -261,6 +276,17 @@ class MainWindow(QDialog):
         else:
             self.round_score_points(0)
 
+    def correct_message_hint(self):
+        self.correctAnsweLabel.setText("Answer is correct")
+        self.correctAnsweLabel.setStyleSheet("background-color: green; color: white;")
+
+    def correct_message_hint_disabled(self):
+        self.correctAnsweLabel.setText("")
+        self.correctAnsweLabel.setStyleSheet("")
+
+    def correct_message_hint_test(self):
+        if self.correctAnsweLabel.text():
+            self.correct_message_hint_disabled()
 
     def get_countries_list(self):
         url = "https://restcountries.com/v3.1/all"
@@ -292,6 +318,7 @@ class MainWindow(QDialog):
         self.LatitudeLE.setText("")
         self.AreaLE.setText("")
         self.PopulationLE.setText("")
+        self.correct_message_hint_test()
 
 
     def set_show_answer(self):
@@ -302,6 +329,8 @@ class MainWindow(QDialog):
 
     def show_correct_answers(self):
         continent, country, capital, lat, long, area, population = self.correct_answer(self.country_informations)
+        lat = self.minus_rmove(str(lat))
+        long = self.minus_rmove(str(long))
         self.CountryLE.setText(str(country))
         self.ContinentLE.setText(str(continent))
         self.CapitalLE.setText(str(capital))
