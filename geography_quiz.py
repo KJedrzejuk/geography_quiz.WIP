@@ -1,17 +1,11 @@
 # -*- coding: utf-8 -*-
 import random
 import requests
-
-import os
 import sys
-from datetime import datetime
-from typing import Tuple, Optional, Dict
-from more_itertools import locate
+from typing import Optional, Dict
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QDialog, QApplication, QFileDialog
+from PyQt5.QtWidgets import QDialog, QApplication, QMessageBox
 from PyQt5.uic import loadUi
-from playsound import playsound
 from PyQt5.QtGui import QPixmap, QImage
 
 
@@ -29,12 +23,11 @@ class MainWindow(QDialog):
         self.indexes_list = []
         self.clear_show_correct_answer_flag = False
 
-    def minus_rmove(self, answer: str):
+    def minus_rmove(self, answer: str) -> str:
         if answer[0] == "-":
             return answer[1:]
         else:
             return answer
-
 
     def get_hint(self) -> Optional[str]:
         widget = self.check_hint_type()
@@ -97,15 +90,15 @@ class MainWindow(QDialog):
 
     def transform_answer(self, answer: str, index_list: list[int]) -> str:
         output = len(answer) * "_"
-        wynik = list(output)
+        underscore_answer = list(output)
         for index in index_list:
-            wynik[index] = " "
-        wynik = "".join(wynik)
-        self.random_hint(answer, index_list, wynik)
-        return wynik
+            underscore_answer[index] = " "
+        underscore_answer = "".join(underscore_answer)
+        self.random_hint(answer, index_list, underscore_answer)
+        return underscore_answer
 
-    def find_spacebar_index(self, s: str, ch: str) -> list[int]:
-        space_index = [i for i, ltr in enumerate(s) if ltr == ch]
+    def find_spacebar_index(self, correct_answer: str, spacebar: str) -> list[int]:
+        space_index = [element for element, ltr in enumerate(correct_answer) if ltr == spacebar]
         if not self.indexes_list:
             self.indexes_list = space_index
         return space_index
@@ -158,19 +151,16 @@ class MainWindow(QDialog):
 
     def start_quiz(self):
         self.correct_message_hint_test()
-        if self.country_informations:
-            try:
-                self.round_points = 0
-                continent, country, capital, latitude, longitude, area, population = self.correct_answer(self.country_informations)
-                self.answer_validation(country, continent, capital, population, latitude, longitude, area)
-                self.round_score()
-                self.ScoreLabel.setText(f"Score: {self.score}")
-                self.set_show_answer()
-            except:
-                self.get_countries_list()
-                self.start_quiz()
-        else:
-            print("Empty")
+        try:
+            self.round_points = 0
+            continent, country, capital, latitude, longitude, area, population = self.correct_answer(self.country_informations)
+            self.answer_validation(country, continent, capital, population, latitude, longitude, area)
+            self.round_score()
+            self.ScoreLabel.setText(f"Score: {self.score}")
+            self.set_show_answer()
+        except:
+            self.get_countries_list()
+            self.start_quiz()
 
     def correct_answer(self, country_info) -> tuple[str, str, str, float, float, float, int]:
         continent = country_info["continents"][0]
@@ -298,17 +288,35 @@ class MainWindow(QDialog):
             countries_data = response.json()
             random_number = random.randrange(0, len(countries_data))
             random_country = countries_data[random_number]
-            country_flag = random_country["flags"]["png"]
-            self.image.loadFromData(requests.get(country_flag).content)
-            self.FlagLabel.setPixmap(QPixmap(self.image))
             self.country_informations = random_country
-            self.StartB.setEnabled(True)
-            self.HintB.setEnabled(True)
-            self.HintCB.setEnabled(True)
-            return random_country
+            try:
+                continent, country, capital, latitude, longitude, area, population = self.correct_answer(random_country)
+                country_flag = random_country["flags"]["png"]
+                self.image.loadFromData(requests.get(country_flag).content)
+                self.FlagLabel.setPixmap(QPixmap(self.image))
+                self.country_informations = random_country
+                self.StartB.setEnabled(True)
+                self.HintB.setEnabled(True)
+                self.HintCB.setEnabled(True)
+                return random_country
+            except:
+                self.get_countries_list()
         else:
-            print("Data acquisition failed.")
+            self.acquisition_failed_show_MB()
             return
+
+    def acquisition_failed_show_MB(self):
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle("Data Acquisition")
+        msg_box.setText("Data acquisition failed.")
+        msg_box.setIcon(QMessageBox.Information)
+        msg_box.addButton("Try again", QMessageBox.AcceptRole)
+        msg_box.addButton("Quit", QMessageBox.RejectRole)
+        result = msg_box.exec_()
+        if result == QMessageBox.AcceptRole:
+            self.get_countries_list()
+        else:
+            sys.exit()
 
     def clear(self):
         self.CountryLE.setText("")
@@ -319,7 +327,6 @@ class MainWindow(QDialog):
         self.AreaLE.setText("")
         self.PopulationLE.setText("")
         self.correct_message_hint_test()
-
 
     def set_show_answer(self):
         self.StartB.clicked.disconnect(self.start_quiz)
